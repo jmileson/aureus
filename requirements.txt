@@ -1,0 +1,6 @@
+requests
+prompt_toolkit
+fuzzyfinder
+python-string-utils
+pytest
+pretend
