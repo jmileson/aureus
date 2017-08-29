@@ -25,38 +25,31 @@ def test_local_resource_relative_path_throws_exception(tmpdir):
 def test_group_artifact_to_resource_path():
     import aureus.maven.resource as resource
 
-    res = resource.Resource('com.somewhere.something', 'some-id')
+    res = resource.Resource(pretend.stub(), 'com.somewhere.something', 'some-id', 'some-version')
 
     assert res.basepath == 'com/somewhere/something/some-id/'
 
 
-def test_resource_client_get_resource_meta(monkeypatch):
+def test_resource_client_get_resource_meta():
     import aureus.maven.resource as resource
 
-    get = pretend.call_recorder(lambda *a, **kw: """
+    client = pretend.stub(get_content=lambda *a, **kw: """
         <metadata>
-            <groupId>com.jss</groupId>
-            <artifactId>payment-order-system-api</artifactId>
+            <groupId>com.fake</groupId>
+            <artifactId>fake-id</artifactId>
             <versioning>
-                <release>1.0.10</release>
+                <release>1.0.1</release>
                 <versions>
-                    <version>1.0.4</version>
-                    <version>1.0.5</version>
-                    <version>1.0.6</version>
-                    <version>1.0.7</version>
-                    <version>1.0.8</version>
-                    <version>1.0.9</version>
-                    <version>1.0.10</version>
+                    <version>1.0.0</version>
+                    <version>1.0.1</version>
                 </versions>
-                <lastUpdated>20170825180820</lastUpdated>
+                <lastUpdated>20170825122100</lastUpdated>
             </versioning>
         </metadata>
     """)
-    monkeypatch.setattr(resource.requests, 'get', get)
 
-    client = resource.ResourceClient('http://fake.com/api', ('username', 'password'))
+    meta_inf = resource.Resource(client, 'com.fake', 'fake-id', 'some-version').meta()
 
-    meta_inf = client.meta('/blah')
     assert meta_inf['group_id'] == 'com.fake'
     assert meta_inf['artifact_id'] == 'fake-id'
     assert meta_inf['latest_version'] == '1.0.1'
@@ -64,15 +57,65 @@ def test_resource_client_get_resource_meta(monkeypatch):
     assert meta_inf['last_updated_time'] == datetime(2017, 8, 25, 12, 21, 0)
 
 
-def test_find_latest_version():
+def test_resource_latest_version():
     import aureus.maven.resource as resource
 
-    res = resource.Resource('com.somewhere', 'some-id')
+    client = pretend.stub(get_content=lambda *a, **kw: """
+        <metadata>
+            <groupId>com.fake</groupId>
+            <artifactId>fake-id</artifactId>
+            <versioning>
+                <release>1.0.1</release>
+                <versions>
+                    <version>1.0.0</version>
+                    <version>1.0.1</version>
+                </versions>
+                <lastUpdated>20170825122100</lastUpdated>
+            </versioning>
+        </metadata>
+    """)
 
-    res.latest_version()
+    res = resource.Resource(client, 'com.fake', 'fake-id', 'some-version')
+
+    assert res.latest_version() == '1.0.1'
 
 
-def test_resource_client():
-    class ResourceClient(object):
-        def __init__(self, credentials):
-            self.credentials = credentials
+def test_resource_unspecified_version_is_latest_version():
+    import aureus.maven.resource as resource
+
+    client = pretend.stub(get_content=lambda *a, **kw: """
+        <metadata>
+            <groupId>com.fake</groupId>
+            <artifactId>fake-id</artifactId>
+            <versioning>
+                <release>1.0.1</release>
+                <versions>
+                    <version>1.0.0</version>
+                    <version>1.0.1</version>
+                </versions>
+                <lastUpdated>20170825122100</lastUpdated>
+            </versioning>
+        </metadata>
+    """)
+
+    res = resource.Resource(client, 'com.fake', 'fake-id', '')
+
+    assert res.version == '1.0.1'
+
+
+def test_resource_content_url():
+    from aureus.maven import resource
+    client = pretend.stub()
+    res = resource.Resource(client, 'com.fake', 'fake-id', '1.1.1')
+
+    assert res.contentpath == 'com/fake/fake-id/1.1.1/fake-id-1.1.1.zip'
+
+
+def test_resource_content():
+    from aureus.maven import resource
+
+    client = pretend.stub(get_content=lambda *a, **kw: b'content')
+
+    res = resource.Resource(client, 'com.fake', 'fake-id', 'fake-version')
+
+    assert res.content() == b'content'

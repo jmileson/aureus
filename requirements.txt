@@ -4,3 +4,5 @@ fuzzyfinder
 python-string-utils
 pytest
 pretend
+lxml
+beautifulsoup4

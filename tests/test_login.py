@@ -22,6 +22,8 @@ def test_credentials_from_input(monkeypatch):
     fake_input = str(pretend.stub())
     prompt = pretend.call_recorder(lambda *a, **kw: fake_input)
     monkeypatch.setattr(login, 'prompt', prompt)
+    monkeypatch.delenv(login._MMC_USER_ENV)
+    monkeypatch.delenv(login._MMC_PW_ENV)
 
     creds = login.BasicCredentials(login._MMC_USER_ENV, login._MMC_PW_ENV)
 

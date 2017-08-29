@@ -2,7 +2,8 @@ import os.path
 import re
 import requests
 from urllib.parse import urljoin
-
+from bs4 import BeautifulSoup
+from datetime import datetime
 
 
 class LocalResource(object):
@@ -41,22 +42,66 @@ class LocalResource(object):
         return open(self.filepath, mode='rb')
 
 
+def tag_value(tag):
+    return str(tag.string)
+
+
 class Resource(object):
     _URL_SEP = '/'
 
     _MAVEN_METADATA = 'maven-metadata.xml'
 
-    def __init__(self, group, artifact_id, version=None):
+    _GROUP_ID = 'group_id'
+    _ARTIFACT_ID = 'artifact_id'
+    _LATEST_VERSION = 'latest_version'
+    _VERSIONS = 'versions'
+    _LAST_UPDATED_TIME = 'last_updated_time'
+
+    def __init__(self, client, group, artifact_id, version=None):
+        self.client = client
         self.group = group
         self.artifact_id = artifact_id
-        self.version = version
+        self.version = version or self.latest_version()
 
     @property
     def basepath(self):
-        return urljoin(self.group.replace('.', self._URL_SEP) + self._URL_SEP, self.artifact_id + '/')
+        base_template = "{group}/{artifact}/"
+        return base_template.format(group=self.group.replace('.', self._URL_SEP),
+                                    artifact=self.artifact_id)
+
+    @property
+    def contentpath(self):
+        content_template = '{version}/{artifact}-{version}.zip'
+        content_url = content_template.format(basepath=self.basepath,
+                                              version=self.version,
+                                              artifact=self.artifact_id)
+        return urljoin(self.basepath, content_url)
 
     def _metadata(self):
         meta_url = urljoin(self.basepath, self._MAVEN_METADATA)
+        return self.client.get_content(meta_url)
+
+    @classmethod
+    def _meta(cls, meta):
+        soup = BeautifulSoup(meta, 'xml')
+        print('complete')
+        return {
+            cls._GROUP_ID: tag_value(soup.groupId),
+            cls._ARTIFACT_ID: tag_value(soup.artifactId),
+            cls._LATEST_VERSION: tag_value(soup.versioning.release),
+            cls._VERSIONS: [tag_value(x.string) for x in soup.versioning.versions.find_all('version')],
+            cls._LAST_UPDATED_TIME: datetime.strptime(tag_value(soup.versioning.lastUpdated), '%Y%m%d%H%M%S')
+        }
+
+    def meta(self):
+        meta_content = self._metadata()
+        return self._meta(meta_content)
+
+    def latest_version(self):
+        return self.meta()[self._LATEST_VERSION]
+
+    def content(self):
+        return self.client.get_content(self.contentpath)
 
 
 class ResourceClient(object):
@@ -64,13 +109,12 @@ class ResourceClient(object):
         self.base_url = base_url
         self.credentials = credentials
 
-    @staticmethod
-    def _meta(meta):
-        from xml.etree import ElementTree
-        xml = ElementTree.fromstring(meta)
+    def resource(self, group_id, artifact_id, version=None):
+        return Resource(self, group_id, artifact_id, version)
 
-    def meta(self, resource):
+    def get_content(self, resource):
         url = urljoin(self.base_url, resource)
 
-        res = requests.get(url, auth=tuple(self.credentials))
-        return self._meta(res.content)
+        res = requests.get(url, auth=tuple(self.credentials), verify=False)
+
+        return res.content
