@@ -1,9 +1,12 @@
 import os.path
 import re
-import requests
+from datetime import datetime
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
-from datetime import datetime
+
+
+class ResourceMissing(Exception):
+    pass
 
 
 class LocalResource(object):
@@ -46,10 +49,10 @@ def tag_value(tag):
     return str(tag.string)
 
 
-class Resource(object):
+class MavenResource(object):
     _URL_SEP = '/'
 
-    _MAVEN_METADATA = 'maven-metadata.xml'
+    _MAVEN_METADATA = 'nexus-metadata.xml'
 
     _GROUP_ID = 'group_id'
     _ARTIFACT_ID = 'artifact_id'
@@ -95,6 +98,8 @@ class Resource(object):
 
     def meta(self):
         meta_content = self._metadata()
+        if not meta_content:
+            raise ResourceMissing('resource meta information not found')
         return self._meta(meta_content)
 
     def latest_version(self):
@@ -102,19 +107,3 @@ class Resource(object):
 
     def content(self):
         return self.client.get_content(self.contentpath)
-
-
-class ResourceClient(object):
-    def __init__(self, base_url, credentials):
-        self.base_url = base_url
-        self.credentials = credentials
-
-    def resource(self, group_id, artifact_id, version=None):
-        return Resource(self, group_id, artifact_id, version)
-
-    def get_content(self, resource):
-        url = urljoin(self.base_url, resource)
-
-        res = requests.get(url, auth=tuple(self.credentials), verify=False)
-
-        return res.content

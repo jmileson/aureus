@@ -6,3 +6,4 @@ pytest
 pretend
 lxml
 beautifulsoup4
+pyyaml
