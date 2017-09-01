@@ -1,12 +1,11 @@
 import os.path
 import re
 from datetime import datetime
-from urllib.parse import urljoin
+
 from bs4 import BeautifulSoup
 
-
-class ResourceMissing(Exception):
-    pass
+from aureus.exception import ResourceMissing
+from ..helpers import resource_join
 
 
 class LocalResource(object):
@@ -52,7 +51,7 @@ def tag_value(tag):
 class MavenResource(object):
     _URL_SEP = '/'
 
-    _MAVEN_METADATA = 'nexus-metadata.xml'
+    _MAVEN_METADATA = 'maven-metadata.xml'
 
     _GROUP_ID = 'group_id'
     _ARTIFACT_ID = 'artifact_id'
@@ -67,22 +66,23 @@ class MavenResource(object):
         self.version = version or self.latest_version()
 
     @property
+    def meta_url(self):
+        return resource_join(self.basepath, self._MAVEN_METADATA)
+
+    @property
     def basepath(self):
-        base_template = "{group}/{artifact}/"
-        return base_template.format(group=self.group.replace('.', self._URL_SEP),
-                                    artifact=self.artifact_id)
+        return resource_join(*self.group.split('.'), self.artifact_id)
+
+    @property
+    def filename(self):
+        return '{0}-{1}.zip'.format(self.artifact_id, self.version)
 
     @property
     def contentpath(self):
-        content_template = '{version}/{artifact}-{version}.zip'
-        content_url = content_template.format(basepath=self.basepath,
-                                              version=self.version,
-                                              artifact=self.artifact_id)
-        return urljoin(self.basepath, content_url)
+        return resource_join(self.basepath, self.version, self.filename)
 
     def _metadata(self):
-        meta_url = urljoin(self.basepath, self._MAVEN_METADATA)
-        return self.client.get_content(meta_url)
+        return self.client.get_content(self.meta_url)
 
     @classmethod
     def _meta(cls, meta):

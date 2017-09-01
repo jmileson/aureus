@@ -1,6 +1,7 @@
 import requests
-
-from aureus.mmc.resource import Repository, Deployment, ServerGroup
+from .resource import Deployment, ServerGroup, Server
+from aureus.mmc.app import Repository
+from ..helpers import resource_join
 
 
 class MMCClient(object):
@@ -11,21 +12,23 @@ class MMCClient(object):
         self.credentials = tuple(credentials)
         self.repository = Repository(self)
         self.server_group = ServerGroup(self)
+        self.server = Server(self)
         self.deployment = Deployment(self)
 
-    def _request(self, method, url, body=None, q=None, headers=None, form_data=None):
+    def _request(self, method, resource_url, body=None, q=None, headers=None, form_data=None):
+        url = resource_join(self.base_url, resource_url)
         res = requests.request(method, url, data=body, params=q, headers=headers, auth=self.credentials,
                                files=form_data)
 
         return res.json()
 
-    def get(self, url):
-        return self._request('GET', url)
+    def get(self, resource_url):
+        return self._request('GET', resource_url)
 
-    def post(self, url, body=None, form_data=None):
+    def post(self, resource_url, body=None, form_data=None):
         if body and form_data:
             raise ValueError('must specify either body or form_data')
-        return self._request('POST', url, body=body, form_data=form_data)
+        return self._request('POST', resource_url, body=body, form_data=form_data)
 
-    def delete(self, url):
-        return self._request('DELETE', url)
+    def delete(self, resource_url):
+        return self._request('DELETE', resource_url)

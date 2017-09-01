@@ -2,6 +2,8 @@ from datetime import datetime
 import pretend
 import pytest
 
+import aureus.exception
+
 
 def test_local_resource_absolute_file_path_instantiates(tmpdir):
     import aureus.nexus.maven as resource
@@ -27,7 +29,7 @@ def test_group_artifact_to_resource_path():
 
     res = resource.MavenResource(pretend.stub(), 'com.somewhere.something', 'some-id', 'some-version')
 
-    assert res.basepath == 'com/somewhere/something/some-id/'
+    assert res.basepath == 'com/somewhere/something/some-id'
 
 
 def test_resource_get_resource_meta():
@@ -62,7 +64,7 @@ def test_resource_get_resource_meta_no_response_raises_resource_missing_exceptio
 
     client = pretend.stub(get_content=lambda *a, **kw: None)
 
-    with pytest.raises(resource.ResourceMissing) as exc_info:
+    with pytest.raises(aureus.exception.ResourceMissing) as exc_info:
         meta_inf = resource.MavenResource(client, 'com.fake', 'fake-id', 'some-version').meta()
 
 
@@ -112,12 +114,30 @@ def test_resource_unspecified_version_is_latest_version():
     assert res.version == '1.0.1'
 
 
+def test_resource_filename():
+    from aureus.nexus import maven
+
+    client = pretend.stub()
+    res = maven.MavenResource(client, 'com.fake', 'fake-id', '1.1.1')
+
+    assert res.filename == 'fake-id-1.1.1.zip'
+
+
 def test_resource_content_url():
     from aureus.nexus import maven
     client = pretend.stub()
     res = maven.MavenResource(client, 'com.fake', 'fake-id', '1.1.1')
 
     assert res.contentpath == 'com/fake/fake-id/1.1.1/fake-id-1.1.1.zip'
+
+
+def test_resource_meta_url():
+    from aureus.nexus import maven
+
+    client = pretend.stub()
+    res = maven.MavenResource(client, 'com.fake', 'fake-id', '1.1.1')
+
+    assert res.meta_url == 'com/fake/fake-id/maven-metadata.xml'
 
 
 def test_resource_content():

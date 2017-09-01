@@ -1,5 +1,4 @@
-from urllib.parse import urljoin
-from io import BytesIO
+from ..helpers import resource_join
 
 
 class Resource(object):
@@ -10,43 +9,46 @@ class Resource(object):
 
     @property
     def url(self):
-        if self._RESOURCE.startswith('/'):
-            self._RESOURCE = self._RESOURCE[1:]
-        return urljoin(self._client.base_url, self._RESOURCE)
+        return resource_join(self._RESOURCE)
 
     def member_url(self, id):
-        base = self.url
-        if not self.url.endswith('/'):
-            base += '/'
-        if id.startswith('/'):
-            id = id[1:]
-        return urljoin(base, id)
+        return resource_join(self.url, id)
 
     def list(self):
         return self._client.get(self.url)
 
-    def delete(self, id):
-        return self._client.delete(self.member_url(id))
-
-    def upload(self, resource):
-        form_data = {
-            'file': BytesIO(resource.content()),
-            'name': resource.artifact_id,
-            'version': resource.version
-        }
-        return self._client.post(self.url, form_data=form_data)
-
-
-class Repository(Resource):
-    _RESOURCE = 'repository/'
-
-    def list_all_versions(self, id):
+    def inspect(self, id):
         return self._client.get(self.member_url(id))
 
 
+class DeletableResource(Resource):
+    def delete(self, id):
+        return self._client.delete(self.member_url(id))
+
+
+class Deployment(DeletableResource):
+    _RESOURCE = 'deployments'
+
+
 class ServerGroup(Resource):
-    _RESOURCE = 'serverGroups/'
+    _RESOURCE = 'serverGroups'
+    _TEST = 'Test'
+    _PROD = 'Production'
+
+    def _get_group(self, name):
+        matches = [g for g in self.list()['data'] if g['name'] == name]
+        if matches:
+            return matches[0]
+        return None
+
+    @property
+    def test(self):
+        return self._get_group(self._TEST)
+
+    @property
+    def prod(self):
+        return self._get_group(self._PROD)
 
 
-class Deployment(Resource):
-    _RESOURCE = 'deployments/'
+class Server(Resource):
+    _RESOURCE = 'servers'

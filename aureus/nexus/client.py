@@ -1,5 +1,5 @@
 import requests
-from urllib.parse import urljoin
+from ..helpers import resource_join
 from .maven import MavenResource
 
 
@@ -12,7 +12,7 @@ class NexusClient(object):
         return MavenResource(self, group_id, artifact_id, version)
 
     def get_content(self, resource):
-        url = urljoin(self.base_url, resource)
+        url = resource_join(self.base_url, resource)
 
         try:
             res = requests.get(url, auth=tuple(self.credentials), verify=False)
